@@ -1,5 +1,6 @@
 /******************************************************************************
  * Copyright (c) 2023, Tri Dao.
+ * Adapted by Hoai-Chau Tran and Huu-Chi Nguyen
  ******************************************************************************/
 
 #pragma once
@@ -48,7 +49,11 @@ struct Flash_kernel_traits {
 };
 
 // If Share_Q_K_smem is true, that forces Is_Q_in_regs to be true
-template<int kHeadDim_, int kBlockM_, int kBlockN_, int kNWarps_, bool Is_Q_in_regs_=false, bool Share_Q_K_smem_=false, typename elem_type=cutlass::half_t,
+// template<int kHeadDim_, int kBlockM_, int kBlockN_, int rel_h_last_dim,int kNWarps_, bool Is_Q_in_regs_=false, bool Share_Q_K_smem_=false, typename elem_type=cutlass::half_t,
+//          typename Base=Flash_kernel_traits<kHeadDim_, kBlockM_, kBlockN_, kNWarps_, elem_type> >
+// template<int kHeadDim_, int kBlockM_, int kBlockN_, int kNWarps_, int rel_h_last_dim_=64, bool Is_Q_in_regs_=false, bool Share_Q_K_smem_=false, typename elem_type=cutlass::half_t,
+//          typename Base=Flash_kernel_traits<kHeadDim_, kBlockM_, kBlockN_, kNWarps_, elem_type> >
+template<int kHeadDim_, int kBlockM_, int kBlockN_, int kNWarps_, bool Is_Q_in_regs_=false, bool Share_Q_K_smem_=false, typename elem_type=cutlass::half_t, int rel_h_last_dim_=64, int rel_w_last_dim_=64,
          typename Base=Flash_kernel_traits<kHeadDim_, kBlockM_, kBlockN_, kNWarps_, elem_type> >
 struct Flash_fwd_kernel_traits : public Base {
     using Element = typename Base::Element;
@@ -68,6 +73,8 @@ struct Flash_fwd_kernel_traits : public Base {
     static constexpr int kBlockM = kBlockM_;
     static constexpr int kBlockN = kBlockN_;
     static constexpr int kHeadDim = kHeadDim_;
+    static constexpr int kRelHLastDim = rel_h_last_dim_;
+    static constexpr int kRelWLastDim = rel_w_last_dim_;
     static_assert(kHeadDim % 32 == 0);
     static constexpr int kBlockKSmem = kHeadDim % 64 == 0 ? 64 : 32;
     static constexpr int kBlockKGmem = kHeadDim % 128 == 0 ? 128 : (kHeadDim % 64 == 0 ? 64 : 32);
@@ -90,6 +97,31 @@ struct Flash_fwd_kernel_traits : public Base {
     using SmemLayoutKV = decltype(tile_to_shape(
         SmemLayoutAtomQ{},
         Shape<Int<kBlockN>, Int<kHeadDim>>{}));
+    //////////////////////////////////////////////////////////
+    // Column-major rel-pos layouts were used for the experimental compact local path.
+    using SmemLayoutRelH_column_major = Layout<Shape<Int<kBlockM>, Int<kRelHLastDim>>,
+                                  Stride<_1, Int<kBlockM>>>;
+    using SmemLayoutRelW_column_major = Layout<Shape<Int<kBlockM>, Int<kRelWLastDim>>,
+                                  Stride<_1, Int<kBlockM>>>;
+
+    // Experimental local-path layouts: plain logical column-major shared-memory aliases.
+    // These keep the logical tensor shapes unchanged and only flip the storage order.
+    using SmemLayoutQ_column_major = Layout<Shape<Int<kBlockM>, Int<kHeadDim>>,
+                                            Stride<_1, Int<kBlockM>>>;
+    using SmemLayoutK_column_major = Layout<Shape<Int<kBlockN>, Int<kHeadDim>>,
+                                            Stride<_1, Int<kBlockN>>>;
+    using SmemLayoutV_column_major = Layout<Shape<Int<kBlockN>, Int<kHeadDim>>,
+                                            Stride<_1, Int<kBlockN>>>;
+    using SmemLayoutVtransposed_column_major = Layout<Shape<Int<kHeadDim>, Int<kBlockN>>,
+                                                      Stride<Int<kBlockN>, _1>>;
+
+    // Global-only fused rel-pos uses the same shared-memory layout family as Q.
+    using SmemLayoutRelH = decltype(tile_to_shape(
+        SmemLayoutAtomQ{},
+        Shape<Int<kBlockM>, Int<kRelHLastDim>>{}));
+    using SmemLayoutRelW = decltype(tile_to_shape(
+        SmemLayoutAtomQ{},
+        Shape<Int<kBlockM>, Int<kRelWLastDim>>{}));
 
     // This has to be kBlockN and not 8, otherwise we get wrong results for d=128
     using SmemLayoutAtomVtransposedNoSwizzle = Layout<Shape<Int<kBlockKSmem>, Int<kBlockN>>,
@@ -113,6 +145,8 @@ struct Flash_fwd_kernel_traits : public Base {
     using SmemLayoutO = decltype(tile_to_shape(
         SmemLayoutAtomO{},
         Shape<Int<kBlockM>, Int<kHeadDim>>{}));
+    using SmemLayoutBias = Layout<Shape<Int<kBlockM>, Int<kBlockN>>,
+                                  Stride<Int<kBlockN>, _1>>;
     using SmemCopyAtomO = Copy_Atom<DefaultCopy, Element>;
     using SmemCopyAtomOaccum = Copy_Atom<DefaultCopy, ElementAccum>;
 
@@ -158,6 +192,27 @@ struct Flash_fwd_kernel_traits : public Base {
         make_tiled_copy(Copy_Atom<DefaultCopy, Element>{},
                         GmemLayoutAtomP{},
                         Layout<Shape<_1, _8>>{}));  // Val layout, 8 vals per store
+
+    // Width-16 padded rel-pos cooperative-copy experiment kept for reference.
+    // static constexpr int kRelPosPaddedLastDim = 16;
+    // static_assert(kRelPosPaddedLastDim % kGmemElemsPerLoad == 0, "kRelPosPaddedLastDim must be a multiple of kGmemElemsPerLoad");
+    // static constexpr int kGmemThreadsPerRowRel = kRelPosPaddedLastDim / kGmemElemsPerLoad;
+    // static_assert(kNThreads % kGmemThreadsPerRowRel == 0, "kNThreads must be a multiple of kGmemThreadsPerRowRel");
+    // using GmemLayoutAtomRel = Layout<Shape<Int<kNThreads / kGmemThreadsPerRowRel>, Int<kGmemThreadsPerRowRel>>,
+    //                                  Stride<Int<kGmemThreadsPerRowRel>, _1>>;
+    //
+    // using GmemTiledCopyRelH = decltype(
+    //     make_tiled_copy(Copy_Atom<DefaultCopy, Element>{},
+    //                     GmemLayoutAtomRel{},
+    //                     Layout<Shape<_1, Int<kRelPosPaddedLastDim / kGmemThreadsPerRowRel>>>{}));
+    //
+    // using GmemTiledCopyRelW = decltype(
+    //     make_tiled_copy(Copy_Atom<DefaultCopy, Element>{},
+    //                     GmemLayoutAtomRel{},
+    //                     Layout<Shape<_1, Int<kRelPosPaddedLastDim / kGmemThreadsPerRowRel>>>{}));
+
+    //////////////////////////// Define the column-major layout for Q,K,V in sharememory  and val_h ,val_h /////
+
 
     using GmemLayoutAtomOaccum = std::conditional_t<
         kBlockKSmem == 32,
