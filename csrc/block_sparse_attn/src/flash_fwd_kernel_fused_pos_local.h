@@ -404,7 +404,7 @@ inline __device__ void compute_block_attn_sam(
     // Tensor cRel_w = make_identity_tensor(make_shape(size<0>(gRel_w), size<1>(gRel_w)));
     // Tensor tRel_h_cRel_h = gmem_thr_copy_Rel.partition_S(cRel_h);
     // Tensor tRel_w_cRel_w = gmem_thr_copy_Rel.partition_S(cRel_w);
-
+    
 
     Tensor tQpQ = make_tensor<bool>(make_shape(size<2>(tQsQ)));
     Tensor tKVpKV = make_tensor<bool>(make_shape(size<2>(tKsK)));
@@ -496,7 +496,7 @@ inline __device__ void compute_block_attn_sam(
 
             Tensor acc_s = thr_mma.partition_fragment_C(c_tensor_s); // [kBlockM, kBlockN]
 
-
+            
             clear(acc_s);
             FLASH_NAMESPACE::cp_async_wait<0>();
             __syncthreads();
@@ -528,7 +528,7 @@ inline __device__ void compute_block_attn_sam(
             }
 
             Tensor scores = make_tensor(acc_s.data(), FLASH_NAMESPACE::convert_layout_acc_rowcol(acc_s.layout())); // [kBlockM, kBlockN]
-
+   
             if (n_block > n_block_min && !is_last_block) {
                 tKgK.data() = tKgK.data() + (-index_t(kBlockN * leap * params.k_row_stride));
                 // tsgRelW.data() = tsgRelW.data() + (-index_t(kBlockN * leap * params.rel_w_col_stride));
@@ -637,7 +637,7 @@ inline __device__ void compute_block_attn_sam(
     }
 
     // Iterate over remaining blocks in sparse pattern
-    // todo: explain how KV tile is loaded here
+    // todo: explain how KV tile is loaded here 
     for (; !is_last_block && n_block >= n_block_min; n_block = next_block_col_idx) {
         ++mask_block_idx;
         mask_val = blockmask.mask_val(mask_block_idx);

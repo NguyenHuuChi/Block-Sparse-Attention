@@ -43,7 +43,7 @@ __forceinline__ __device__ uint32_t relu2<cutlass::half_t>(const uint32_t x) {
         "{\n" \
         "\t .reg .f16x2 sela;\n" \
         "\t set.gtu.u32.f16x2 sela, %1, %2;\n" \
-        "\t and.b32 %0, sela, %1;\n"
+        "\t and.b32 %0, sela, %1;\n" 
         "}\n" : "=r"(res) : "r"(x), "r"(zero));
 #endif
     return res;
@@ -123,7 +123,7 @@ struct Allreduce {
 
 template<>
 struct Allreduce<2> {
-template<typename T, typename Operator>
+template<typename T, typename Operator> 
 static __device__ __forceinline__ T run(T x, Operator &op) {
     x = op(x, __shfl_xor_sync(uint32_t(-1), x, 1));
     return x;
@@ -160,7 +160,7 @@ __forceinline__ __device__ void gemm(Tensor0 &acc, Tensor1 &tCrA, Tensor2 &tCrB,
             if (!B_in_regs) { cute::copy(smem_tiled_copy_B, tCsB(_, _, i + 1), tCrB_copy_view(_, _, i + 1)); }
         }
         cute::gemm(tiled_mma, tCrA(_, _, i), tCrB(_, _, i), acc);
-
+        
     }
 }
 

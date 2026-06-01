@@ -289,11 +289,11 @@ inline __device__ void compute_block_attn_sam(
 
     const bool use_pos = params.pos_ptr != nullptr;
 
-    auto gP = load_pos<Kernel_traits, Is_even_MN, Is_even_K>(
+    auto gP = load_pos<Kernel_traits, Is_even_MN, Is_even_K>( 
         params, bidb, bidh, m_block, (n_block_max - 1)
     );
     Tensor tSgP = thr_mma.partition_C(gP);
-
+                                  
 
     // Copy operations setup
     auto smem_tiled_copy_Q = make_tiled_copy_A(typename Kernel_traits::SmemCopyAtom{}, tiled_mma);
@@ -384,7 +384,7 @@ inline __device__ void compute_block_attn_sam(
 
             Tensor acc_s = thr_mma.partition_fragment_C(c_tensor_s); // [kBlockM, kBlockN]
 
-
+            
             clear(acc_s);
             FLASH_NAMESPACE::cp_async_wait<0>();
             __syncthreads();
@@ -516,7 +516,7 @@ inline __device__ void compute_block_attn_sam(
     }
 
     // Iterate over remaining blocks in sparse pattern
-    // todo: explain how KV tile is loaded here
+    // todo: explain how KV tile is loaded here 
     for (; !is_last_block && n_block >= n_block_min; n_block = next_block_col_idx) {
         ++mask_block_idx;
         mask_val = blockmask.mask_val(mask_block_idx);
@@ -794,11 +794,11 @@ inline __device__ void compute_block_pos_sam(
     const bool use_pos = params.pos_ptr != nullptr;
     const bool return_attn = params.attn_ptr != nullptr;
 
-    auto gP = load_pos<Kernel_traits, Is_even_MN, Is_even_K>(
+    auto gP = load_pos<Kernel_traits, Is_even_MN, Is_even_K>( 
         params, bidb, bidh, m_block, (n_block_max - 1)
     );
     Tensor tSgP = thr_mma.partition_C(gP);
-
+                                  
 
     // Copy operations setup
     auto smem_tiled_copy_Q = make_tiled_copy_A(typename Kernel_traits::SmemCopyAtom{}, tiled_mma);
@@ -889,7 +889,7 @@ inline __device__ void compute_block_pos_sam(
 
             Tensor acc_s = thr_mma.partition_fragment_C(c_tensor_s); // [kBlockM, kBlockN]
 
-
+            
             clear(acc_s);
             FLASH_NAMESPACE::cp_async_wait<0>();
             __syncthreads();
@@ -1021,7 +1021,7 @@ inline __device__ void compute_block_pos_sam(
     }
 
     // Iterate over remaining blocks in sparse pattern
-    // todo: explain how KV tile is loaded here
+    // todo: explain how KV tile is loaded here 
     for (; !is_last_block && n_block >= n_block_min; n_block = next_block_col_idx) {
         ++mask_block_idx;
         mask_val = blockmask.mask_val(mask_block_idx);

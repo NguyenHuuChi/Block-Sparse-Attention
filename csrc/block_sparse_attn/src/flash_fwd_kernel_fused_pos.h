@@ -272,7 +272,7 @@ inline __device__ auto load_rel_h_rel_w(
         + bidh * params.rel_w_head_stride
         + m_block * kBlockM * params.rel_w_row_stride
         + n_block * kBlockN * params.rel_w_col_stride;
-
+    
     // Tensor gRelH = make_tensor(make_gmem_ptr(reinterpret_cast<Element *>(params.rel_h_ptr) + row_offset_rel_h),
     //                           Shape<Int<kBlockM>, Int<kBlockN>>{},
     //                           make_stride(params.rel_h_row_stride, params.rel_h_col_stride));
@@ -282,8 +282,8 @@ inline __device__ auto load_rel_h_rel_w(
     // return cute::make_tuple(gRelH, gRelW);
     return gRelW;
 
-
-
+    
+    
 }
 
 template<typename Kernel_traits, bool Is_even_MN, bool Is_even_K, typename Params>
@@ -515,9 +515,9 @@ inline __device__ void compute_block_attn_sam(
     FLASH_NAMESPACE::copy<Is_even_MN, Is_even_K>(gmem_tiled_copy_QKV, tQgQ, tQsQ, tQcQ, tQpQ,
                                                    binfo.actual_seqlen_q - m_block * kBlockM);
     if (Kernel_traits::Is_Q_in_regs) { cute::cp_async_fence(); }
-
+    
     if (use_rel_pos) {
-
+        
             // Global-only fused rel-pos: load rel_h/rel_w exactly like Q into shared memory.
         FLASH_NAMESPACE::copy<Is_even_MN, Is_even_K>(
             gmem_tiled_copy_QKV, tRel_hgRel_h, tRel_hsRel_h, tRel_h_cRel_h, tRel_hpRel_h,
@@ -528,7 +528,7 @@ inline __device__ void compute_block_attn_sam(
             binfo.actual_seqlen_q - m_block * kBlockM
         );
         cute::cp_async_fence();
-
+      
             // load_rel_w_to_smem<Kernel_traits>(gRel_w, sRel_w, tidx, binfo.actual_seqlen_q - m_block * kBlockM, params.rel_w_last_dim);
             // FLASH_NAMESPACE::copy<Is_even_MN, /*Is_even_K=*/false, /*Clear_OOB_MN=*/true>(
             //     gmem_tiled_copy_RelH, tRel_hgRel_h, tRel_hsRel_h, tRel_h_cRel_h, tRel_hpRel_h,
@@ -540,7 +540,7 @@ inline __device__ void compute_block_attn_sam(
             // );
             // load_rel_w_to_smem<Kernel_traits>(gRel_w, sRel_w, tidx, binfo.actual_seqlen_q - m_block * kBlockM, params.rel_w_last_dim);
             // DEBUG: rel_h restored to safe scalar load; rel_w and cooperative rel-pos copies remain disabled.
-
+        
     }
 
     // auto sRel_w_window = make_tensor(
@@ -561,7 +561,7 @@ inline __device__ void compute_block_attn_sam(
     //     );
     // auto tssRelH = thr_mma.partition_C(sRel_h_window);
 
-
+    
     __syncthreads();
 
     if (Kernel_traits::Share_Q_K_smem) {
@@ -616,7 +616,7 @@ inline __device__ void compute_block_attn_sam(
 
             Tensor acc_s = thr_mma.partition_fragment_C(c_tensor_s); // [kBlockM, kBlockN]
 
-
+            
             clear(acc_s);
             FLASH_NAMESPACE::cp_async_wait<0>();
             __syncthreads();
@@ -649,9 +649,9 @@ inline __device__ void compute_block_attn_sam(
                 // auto tssRelW = make_rel_w_window_partition<Kernel_traits>(thr_mma, sRel_w, start_index_rel_w);
                 // axpby(1.0, tssRelW, 1.0, acc_s);
                 // add_rel_w_from_smem_fragment<Kernel_traits, ElementAccum>(acc_s, tScS, sRel_w, start_index_rel_w);
-
+               
                 axpby(1.0, tsgRelW, 1.0, acc_s);
-
+               
                 // Global fused path reuses rel_w from shared memory; non-global keeps the safe exact gmem path.
             }
 
@@ -723,7 +723,7 @@ inline __device__ void compute_block_attn_sam(
                 // auto tssRelW = make_rel_w_window_partition<Kernel_traits>(thr_mma, sRel_w, start_index_rel_w);
                 // axpby(1.0, tssRelW, 1.0, acc_s);
                 // add_rel_w_from_smem_fragment<Kernel_traits, ElementAccum>(acc_s, tScS, sRel_w, start_index_rel_w);
-
+             
                 axpby(1.0, tsgRelW, 1.0, acc_s);
 
                 // Global fused path reuses rel_w from shared memory; non-global keeps the safe exact gmem path.
@@ -779,7 +779,7 @@ inline __device__ void compute_block_attn_sam(
     }
 
     // Iterate over remaining blocks in sparse pattern
-    // todo: explain how KV tile is loaded here
+    // todo: explain how KV tile is loaded here 
     for (; !is_last_block && n_block >= n_block_min; n_block = next_block_col_idx) {
         ++mask_block_idx;
         mask_val = blockmask.mask_val(mask_block_idx);
@@ -817,7 +817,7 @@ inline __device__ void compute_block_attn_sam(
             // const int start_index_rel_w = start_index_block_tile_rel_w != nullptr ? start_index_block_tile_rel_w[n_block] : 0;
             // auto tssRelW = make_rel_w_window_partition<Kernel_traits>(thr_mma, sRel_w, start_index_rel_w);
             // axpby(1.0, tssRelW, 1.0, acc_s);
-
+     
             axpby(1.0, tsgRelW, 1.0, acc_s);
 
             // Global fused path reuses rel_w from shared memory; non-global keeps the safe exact gmem path.
@@ -1071,14 +1071,14 @@ inline __device__ void compute_block_pos_sam(
     auto c_tensor_s = make_tensor(make_rmem_ptr<ElementAccum>(&c_dummy_s),
                                   make_layout(Shape<Int<kBlockM>, Int<kBlockN>>{}));
 
-
+    
     const bool return_attn = params.attn_ptr != nullptr;
 
     const bool use_rel_pos = params.rel_h_ptr != nullptr && params.rel_w_ptr != nullptr;
     auto [gRelH, gRelW] = load_rel_h_rel_w<Kernel_traits, Is_even_MN, Is_even_K>(params, bidb, bidh, m_block, n_block_max - 1);
     Tensor tsgRelH = thr_mma.partition_C(gRelH);
-    Tensor tsgRelW = thr_mma.partition_C(gRelW);
-
+    Tensor tsgRelW = thr_mma.partition_C(gRelW); 
+                                  
 
     // Copy operations setup
     auto smem_tiled_copy_Q = make_tiled_copy_A(typename Kernel_traits::SmemCopyAtom{}, tiled_mma);
@@ -1169,7 +1169,7 @@ inline __device__ void compute_block_pos_sam(
 
             Tensor acc_s = thr_mma.partition_fragment_C(c_tensor_s); // [kBlockM, kBlockN]
 
-
+            
             clear(acc_s);
             FLASH_NAMESPACE::cp_async_wait<0>();
             __syncthreads();
@@ -1305,7 +1305,7 @@ inline __device__ void compute_block_pos_sam(
     }
 
     // Iterate over remaining blocks in sparse pattern
-    // todo: explain how KV tile is loaded here
+    // todo: explain how KV tile is loaded here 
     for (; !is_last_block && n_block >= n_block_min; n_block = next_block_col_idx) {
         ++mask_block_idx;
         mask_val = blockmask.mask_val(mask_block_idx);

@@ -103,7 +103,7 @@ struct Flash_fwd_kernel_traits : public Base {
                                   Stride<_1, Int<kBlockM>>>;
     using SmemLayoutRelW_column_major = Layout<Shape<Int<kBlockM>, Int<kRelWLastDim>>,
                                   Stride<_1, Int<kBlockM>>>;
-
+    
     // Experimental local-path layouts: plain logical column-major shared-memory aliases.
     // These keep the logical tensor shapes unchanged and only flip the storage order.
     using SmemLayoutQ_column_major = Layout<Shape<Int<kBlockM>, Int<kHeadDim>>,
@@ -210,9 +210,9 @@ struct Flash_fwd_kernel_traits : public Base {
     //     make_tiled_copy(Copy_Atom<DefaultCopy, Element>{},
     //                     GmemLayoutAtomRel{},
     //                     Layout<Shape<_1, Int<kRelPosPaddedLastDim / kGmemThreadsPerRowRel>>>{}));
-
+    
     //////////////////////////// Define the column-major layout for Q,K,V in sharememory  and val_h ,val_h /////
-
+            
 
     using GmemLayoutAtomOaccum = std::conditional_t<
         kBlockKSmem == 32,

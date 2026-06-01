@@ -194,7 +194,7 @@ void run_block_attn_sam_smoke() {
     }
     dim3 grid(1, b, h);
     kernel<<<grid, KernelTraits::kNThreads, smem_size>>>(params);
-    //todo: help me return the attention map so that I can check whether positional bias adding is correct
+    //todo: help me return the attention map so that I can check whether positional bias adding is correct 
     cudaError_t launch_err = cudaGetLastError();
     if (launch_err != cudaSuccess) {
         printf("Block attn kernel launch error: %s\n", cudaGetErrorString(launch_err));
@@ -219,7 +219,7 @@ void run_block_attn_sam_smoke() {
 
 int main() {
     // const int rows = 4096;
-    // const int cols = 1024;
+    // const int cols = 1024; 
     // const int total = rows * cols;
     // std::vector<cutlass::half_t> host_a(total);
     // std::vector<cutlass::half_t> host_b(total);
@@ -238,7 +238,7 @@ int main() {
     // const int blocks = (total + threads - 1) / threads;
     // elementwise_add<<<blocks, threads>>>(device_a, device_b, device_out, total);
     // run_dummy_kernel<Flash_fwd_kernel_traits<64, 128, 128, 4, false, false, cutlass::half_t>>(device_out);
-
+    
     run_block_attn_sam_smoke();
     // cudaError_t sync_err = cudaDeviceSynchronize();
     // if (sync_err != cudaSuccess) {

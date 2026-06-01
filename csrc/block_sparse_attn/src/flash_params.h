@@ -99,9 +99,9 @@ struct Flash_fwd_params {
     index_t pos_head_stride;
     index_t pos_row_stride;
     index_t pos_col_stride;
-
+    
      // ============================================================================
-    // rel_w: Layout expected: [b, h, seqlen_q, seqlen_k]
+    // rel_w: Layout expected: [b, h, seqlen_q, seqlen_k]  
     // rel_h: Layout expected: [b, h, seqlen_q, seqlen_k]
     // ============================================================================
     int q_h;
